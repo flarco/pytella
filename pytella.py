@@ -21,9 +21,7 @@ from helpers import (
 
 status_text = "java.lang.System.out.println({text});"
 
-xml_prefix = b'''<!--
-/informatica/powercenter/pcenter/jdk1.7.0_79/bin/java -jar /informatica/powercenter/pcenter/jdk1.7.0_79/scriptella/scriptella.jar /informatica/powercenter/pcenter/jdk1.7.0_79/scriptella/etl.xml
--->
+xml_prefix = b'''
 <!DOCTYPE etl SYSTEM "http://scriptella.javaforge.com/dtd/etl.dtd">
 '''
 
