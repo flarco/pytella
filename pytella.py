@@ -195,7 +195,7 @@ class Scriptella(object):
   
   def create_connection_branch(self, name, conn, allow_truncate = False):
     '''
-    <connection id="STGPRD" url="jdbc:oracle:thin:@//stgprd.saic.com:1521/STGPRD" user="ETL_USER" password="pass" classpath="/informatica/powercenter/pcenter/etl/scriptella-1.1/lib/ojdbc6.jar" lazy-init="true">
+    <connection id="PRD" url="jdbc:oracle:thin:@//db1.com:1521/DB1_SERVICE" user="USER" password="pass" classpath="...lib/ojdbc6.jar" lazy-init="true">
     statement.fetchSize = 20000
     statement.batchSize = 20000
     transaction.isolation=SERIALIZABLE
