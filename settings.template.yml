@@ -1,0 +1,30 @@
+temp_path: /tmp
+java_exec: /path/to/jdk1.7.0_79/bin/java
+
+# leave this alone, unless you want to change the JARs
+drivers:
+  oracle:
+    path: "lib/ojdbc6.jar"
+    class: "oracle.jdbc.driver.OracleDriver"
+  sqlserver:
+    path: "lib/sqljdbc4-2.0.jar"
+    class: "com.microsoft.sqlserver.jdbc.DriverJDBCVersion"
+  postgresql:
+    path: "lib/postgresql-9.4.1207.jre6.jar"
+    class: "org.postgresql.Driver"
+  mysql:
+    path: "lib/mysql-connector-java-5.1.38-bin.jar"
+    class: "com.mysql.jdbc.Driver"
+
+# Here enter your database profiles
+databases:
+  DB1:
+    url: "jdbc:oracle:thin:@//db1.com:1521/DB1_SERVICE"
+    username: "user1"
+    password: "passy1"
+
+  DB2:
+    url: "jdbc:oracle:thin:@//db2.com:1522/DB2_SERVICE"
+    username: "user2"
+    password: "passy2"
+    
