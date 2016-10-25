@@ -24,7 +24,7 @@ git clone https://github.com/flarco/pytella.git
 cd pytella
 
 java -cp "lib/*" org.python.util.jython pythella.py -sConn DBPRD -tConn DBDEV -sTable SC.TABLE1 -tTable SS.TABLE2 -truncate -showDetails
-java -cp "lib/*" org.python.util.jython pythella.py -runFile etl_test1.yml -showDetails -batchSize 50000
-java -cp "lib/*" org.python.util.jython pythella.py -runSingle "DBPRD.SC.TABLE1:STGDEV.DBDEV.SS.TABLE2" -truncate -showDetails -batchSize 50000
+java -cp "lib/*" org.python.util.jython pythella.py -workflow etl_test1.yml -showDetails -batchSize 50000
+java -cp "lib/*" org.python.util.jython pythella.py -mapping "DBPRD.SC.TABLE1:STGDEV.DBDEV.SS.TABLE2" -truncate -showDetails -batchSize 50000
 
 ```
