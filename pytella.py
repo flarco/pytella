@@ -8,10 +8,13 @@ from xml import etree
 from xml.etree.ElementTree import Element
 from scriptella.tools.launcher import EtlLauncher
 
+from arg_parser import parser_args
+
 from helpers import (
   settings,
   fetch_to_array_dict,
   log,
+  load_workflow,
   get_elapsed_time,
   save_text_to_file,
   get_exception_message,
@@ -19,7 +22,8 @@ from helpers import (
   DIR,
 )
 
-status_text = "java.lang.System.out.println({text});"
+j_print = 'java.lang.System.out.print({text});'
+j_println = 'java.lang.System.out.println({text});'
 
 xml_prefix = b'''
 <!DOCTYPE etl SYSTEM "http://scriptella.javaforge.com/dtd/etl.dtd">
@@ -111,7 +115,7 @@ class Scriptella(object):
     # Add Connections
     for conn_name, conn in connections.items():
       # for ETL transfer
-      print('Adding connection ' + conn_name)
+      # print('Adding connection ' + conn_name)
       conn_branch = self.create_connection_branch(conn_name, conn)
       etl_branch.append(conn_branch)
       
@@ -124,11 +128,11 @@ class Scriptella(object):
     
     # Add Queries
     for source_target in self.sources_targets:
-      print('Adding query '  + source_target[0] + '  to  ' +  source_target[1])
+      # print('Adding query '  + source_target[0] + '  to  ' +  source_target[1])
       
       # Add status text
       etl_branch.append(
-        self.create_script_branch("script", status_text.format(
+        self.create_script_branch("script", j_println.format(
           text="' --> Processing " + source_target[0] + "  to  " +  source_target[1] + "'"
           )
         )
@@ -189,6 +193,7 @@ class Scriptella(object):
       )
       
       etl_branch.append(query_branch)
+      etl_branch.append(self.create_script_branch("script", j_println.format(text="' Done!'")))
             
     xml_body = xml_prefix + etree.ElementTree.tostring(etl_branch)
     save_text_to_file(xml_body.decode('utf-8'), self.etl_file_path)
@@ -234,7 +239,7 @@ class Scriptella(object):
     query_branch.text = src_sql
     
     # Row-num status
-    text = status_text.format(text="'row#' + rownum")
+    text = j_print.format(text="'row#' + rownum + '  |'")
     script_branch = self.create_script_branch('script', text)
     script_branch.attrib['if'] = "rownum % 10000"
     query_branch.append(script_branch)
@@ -278,6 +283,7 @@ class Scriptella(object):
   
 
   def execute(self):
+    log('Executing!')
     self.launcher = EtlLauncher()
     etl_file = self.launcher.resolveFile(None, self.etl_file_path)
     try:
@@ -289,7 +295,7 @@ class Scriptella(object):
       log('>')
       log('> ETL failed!')
     finally:
-      os.remove(etl_file)
+      os.remove(self.etl_file_path)
       pass
 
 
@@ -299,13 +305,35 @@ db_live_connections={}
 
 connections = {name: Conn(name, conn) for name, conn in settings['databases'].items()}
 
+if parser_args.workflow:
+  if not('\\' in parser_args.workflow or '/' in parser_args.workflow):
+    parser_args.workflow = DIR + '/' + parser_args.workflow
+  wf_steps = load_workflow(parser_args.workflow)
+
+  for step in wf_steps:
+    if step.startswith('m_'):
+      mapping = wf_steps[step]
+      s_conn = mapping['source']
+      t_conn = mapping['target']
+      truncate = mapping['truncate']
+
+      mapping_sources_targets = []
+      for table_map in mapping['passthrough']:
+        if ':' in table_map:
+          s_table, t_table = table_map.split(':')
+        else:
+          s_table = t_table = table_map
+        
+        if not all(['.' in s_table, '.' in t_table]):
+          log('> ERROR: table names need "."! (SCHEMA.TABLE_NAME)')
+          log('> Skipping mapping for {} to {}'.format(s_table, t_table))
+          continue
+
+        s_combo = '{}.{}'.format(s_conn, s_table)
+        t_combo = '{}.{}'.format(t_conn, t_table)
+        mapping_sources_targets.append((s_combo, t_combo))
     
-tables = '''RMS.RSRC_REQ
-RMS.RSRC_REQ_QUE'''.splitlines()
+      etl = Scriptella(step, mapping_sources_targets)
+      etl.create_etl_file()
+      etl.execute()
 
-sources_targets_d = [ ('STGQA.' + table, 'STGDEV.' + table) for table in tables]
-
-
-etl = Scriptella('etl_', sources_targets_d)
-etl.create_etl_file()
-etl.execute()
