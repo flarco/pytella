@@ -11,6 +11,7 @@ A Jython wrapper to run ETL scripts with scriptella.
     - SQLite
     - CSV
   - Automatically create table in target (if not exists)
+  - Add caching mechanism (to not need to obtain table source/target structure each time). Use MD5 sum or some SHA comparison to determine is the workflow config text has changed.
   - More complex mappings through YML definitions
 
 ## Requirements
