@@ -1,0 +1,22 @@
+
+w_elm_test:
+  expressions_db:
+    SESSSTARTTIME: "SYSDATE"
+  
+  source: DBPRD
+  target: DBDEV
+  truncate: true
+  mappings:
+  - SYS.ENRLMT > SYS.ENRLMT2:
+      truncate: false
+      fields:
+      - ENRLMT_ID > LM_ENRLMT_ID
+      - CI_ID > LM_CI_ID
+      - ACT_ID > LM_ACT_ID
+      - PERSON_ID > LM_PERSON_ID
+      - STTS > LM_STATUS
+      - ENRL_DT > LM_ENRL_DT
+      - COMPL_DT > LM_COMPL_DT
+      - ADHC_LRN_ID > LM_ADHC_LRN_ID
+      - HARGE_CODE > S_CHARGE_CD
+      - "{SESSSTARTTIME} > CDE_UPDATE_DT"
