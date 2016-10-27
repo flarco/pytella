@@ -1,6 +1,7 @@
 
 import sys, os, re, time, datetime
 from com.ziclix.python.sql import zxJDBC
+from collections import OrderedDict
 import glob
 import copy
 
@@ -85,10 +86,10 @@ class Conn:
     
 
 class Scriptella(object):
-  def __init__(self, name, sources_targets):
+  def __init__(self, name, workflow):
     self.name = name
     self.settings = settings
-    self.sources_targets = sources_targets
+    self.workflow = workflow
     self.create_temp_script()
   
   def create_temp_script(self):
@@ -127,8 +128,8 @@ class Scriptella(object):
         
     
     # Add Queries
-    for source_target in self.sources_targets:
-      # print('Adding query '  + source_target[0] + '  to  ' +  source_target[1])
+    for mapping in self.workflow.mappings:
+      source_target = mapping.get_combos()
       
       # Add status text
       etl_branch.append(
@@ -151,7 +152,7 @@ class Scriptella(object):
         'table' : target_arr[2],
       }
       
-      src_sql = '''select * from {SCHEMA}.{TABLE} {WHERE_CLAUSE} ;'''.format(
+      src_sql = '''select * from {SCHEMA}.{TABLE} WHERE 1=1 {WHERE_CLAUSE} '''.format(
         SCHEMA=source['schema'],
         TABLE=source['table'],
         WHERE_CLAUSE=where_clause,
@@ -167,9 +168,19 @@ class Scriptella(object):
         target['schema'],
         target['table']
       )
-      # variable_fields = ','.join(['?' + f.strip()for f in target_fields.split(',')])
-      # ?{etl.getParameter('column one')}
-      variable_fields = ','.join(["?{etl.getParameter('" + f.strip() + "')}" for f in target_fields.split(',')])
+
+      def get_new_field(f):
+        new_field = mapping.fields[f].strip().format(**self.workflow.expressions)
+        if new_field == mapping.fields[f].strip():
+          new_field = "?{etl.getParameter('" + new_field + "')}"
+        return new_field
+      
+      if len(mapping.fields) > 0:
+        target_fields = mapping.fields.keys()
+        variable_fields = ','.join([get_new_field(f) for f in target_fields])
+          
+      else:
+        variable_fields = ','.join(["?{etl.getParameter('" + f.strip() + "')}" for f in target_fields])
       
       tgt_sql = '''
       INSERT {OPTIONS} INTO {SCHEMA}.{TABLE}
@@ -179,9 +190,9 @@ class Scriptella(object):
       ;
       '''.format(
         OPTIONS=options,
-        SCHEMA=source['schema'],
-        TABLE=source['table'],
-        TGT_FIELDS=target_fields,
+        SCHEMA=target['schema'],
+        TABLE=target['table'],
+        TGT_FIELDS=', '.join(target_fields),
         VAR_FILES=variable_fields,
       )
       
@@ -224,10 +235,11 @@ class Scriptella(object):
       # statement.batchSize = 20000
       # transaction.isolation=SERIALIZABLE
       # '''
+      batchSize = int(parser_args.batchSize) if 'batchSize' in parser_args else 10000
       conn_branch.text = '''
-      statement.fetchSize = 2000
-      statement.batchSize = 2000
-      '''
+      statement.fetchSize = {batchSize}
+      statement.batchSize = {batchSize}
+      '''.format(batchSize=batchSize)
     
     return conn_branch
       
@@ -277,7 +289,7 @@ class Scriptella(object):
     print('Getting Table schema for ' + schema + '.' + table)
     data = db_live_connections[conn.name].query_array_dict(sql)
     
-    fields = ','.join([row['column_name'] for row in data])
+    fields = [row['column_name'] for row in data]
     
     return fields
   
@@ -290,15 +302,78 @@ class Scriptella(object):
       self.launcher.execute(etl_file)
       log('>')
       log('> ETL finished succesfully!')
+      os.remove(self.etl_file_path)
     except:
       log(get_exception_message())
       log('>')
-      log('> ETL failed!')
+      log('> ETL failed! See XML -> ' + self.etl_file_path)
+
     finally:
-      os.remove(self.etl_file_path)
+      
       pass
 
 
+class Workflow:
+  
+  def __init__(self, w_spec):
+    get_val = lambda d,k,n: d[k] if k in d else n
+
+    self.source_conn = w_spec['source']
+    self.target_conn = w_spec['target']
+    self.expressions = get_val(w_spec, 'expressions_db', {})
+    self.truncate = w_spec['truncate'] if 'truncate' in w_spec else False
+    self.mappings = []
+
+    for table_map in w_spec['mappings']:
+      mapping_spec = dict(
+        truncate = self.truncate,
+        s_table = None,
+        t_table = None,
+      )
+
+      if isinstance(table_map, dict):
+        spec_ = table_map.values()[0]
+        for k,v in spec_.items():
+          mapping_spec[k] = v
+        table_map = table_map.keys()[0]
+
+      if '>' in table_map:
+        s_table, t_table = [t.strip() for t in table_map.split('>')]
+      else:
+        s_table = t_table = table_map
+      
+      mapping_spec['s_table'] = s_table
+      mapping_spec['t_table'] = t_table
+      mapping = Mapping(mapping_spec, self)
+      if mapping.valid: self.mappings.append(mapping)
+      
+
+class Mapping:
+  
+  def __init__(self, m_spec, workflow):
+    self.valid = True
+    self.source_conn = workflow.source_conn
+    self.target_conn = workflow.target_conn
+    self.source_table = m_spec['s_table']
+    self.target_table = m_spec['t_table']
+    self.truncate = m_spec['truncate']
+    self.fields = OrderedDict()
+
+    if not all(['.' in self.source_table, '.' in self.target_table]):
+      log('> ERROR: table names need "."! (SCHEMA.TABLE_NAME)')
+      log('> Skipping mapping for {} to {}'.format(self.source_table, self.target_table))
+      self.valid = False
+
+    if 'fields' in m_spec:
+      for field_map in m_spec['fields']:
+        s_field, t_field = [f.strip() for f in field_map.split('>')]
+        self.fields[t_field] = s_field
+
+    self.s_combo = '{}.{}'.format(self.source_conn, self.source_table)
+    self.t_combo = '{}.{}'.format(self.target_conn, self.target_table)
+    
+  def get_combos(self):
+    return (self.s_combo, self.t_combo)
 
 limit = 0
 db_live_connections={}
@@ -308,32 +383,13 @@ connections = {name: Conn(name, conn) for name, conn in settings['databases'].it
 if parser_args.workflow:
   if not('\\' in parser_args.workflow or '/' in parser_args.workflow):
     parser_args.workflow = DIR + '/' + parser_args.workflow
-  wf_steps = load_workflow(parser_args.workflow)
+  workflows = load_workflow(parser_args.workflow)
 
-  for step in wf_steps:
-    if step.startswith('m_'):
-      mapping = wf_steps[step]
-      s_conn = mapping['source']
-      t_conn = mapping['target']
-      truncate = mapping['truncate']
-
-      mapping_sources_targets = []
-      for table_map in mapping['passthrough']:
-        if ':' in table_map:
-          s_table, t_table = table_map.split(':')
-        else:
-          s_table = t_table = table_map
-        
-        if not all(['.' in s_table, '.' in t_table]):
-          log('> ERROR: table names need "."! (SCHEMA.TABLE_NAME)')
-          log('> Skipping mapping for {} to {}'.format(s_table, t_table))
-          continue
-
-        s_combo = '{}.{}'.format(s_conn, s_table)
-        t_combo = '{}.{}'.format(t_conn, t_table)
-        mapping_sources_targets.append((s_combo, t_combo))
-    
-      etl = Scriptella(step, mapping_sources_targets)
+  for wf_name, wf_spec  in workflows.items():
+    if wf_name.startswith('w_'):
+      workflow = Workflow(wf_spec)
+      log("Processing workflow {}".format(wf_name))
+      etl = Scriptella(wf_name, workflow)
       etl.create_etl_file()
       etl.execute()
 
