@@ -16,7 +16,8 @@ drivers:
     path: "lib/mysql-connector-java-5.1.38-bin.jar"
     class: "com.mysql.jdbc.Driver"
 
-# Here enter your database profiles
+# Here enter your database profiles, use proper JDBC URLs
+# JDBC doc: http://ref-docs.pw/programming/java/#jdbc
 databases:
   DB1:
     url: "jdbc:oracle:thin:@//db1.com:1521/DB1_SERVICE"
