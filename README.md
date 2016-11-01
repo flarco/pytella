@@ -21,6 +21,8 @@ A Jython wrapper to run ETL scripts with scriptella.
 - Create `settings.yml` from `setting.template.yml`, add databases/credentials
 - Create an YML etl file (such as `etl_test1.yml`), containing your workflows / mappings. See `etl_.template.yml` as an example. The YAML structure needs to be followed.
 
+## Oracle Driver Setup
+
 ## Execution
 
 ```bash
