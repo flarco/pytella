@@ -1,5 +1,15 @@
 
-w_elm_test:
+# workflow test 1
+w_test1:
+source: DBDEV
+  target: Db1QA
+  truncate: false # does not truncate table before inserting
+  mappings:
+  - SYS.TABLE1  # will transfer to same owner/table in Db1QA
+  - SYS.TABLE1 > SYS.TABLE2  # will transfer from DBDEV.SYS.TABLE1 to Db1QA.SYS.TABLE2
+
+# workflow test 2
+w_elm_test2:
   expressions_db:
     SESSSTARTTIME: "SYSDATE"
   
@@ -7,7 +17,9 @@ w_elm_test:
   target: DBDEV
   truncate: true
   mappings:
-  - SYS.ENRLMT > SYS.ENRLMT2:
+  - SYS.TABLE1  # will transfer to same owner/table in target
+  - SYS.TABLE1 > SYS.TABLE2  # will transfer from SYS.TABLE1 to SYS.TABLE2
+  - SYS.ENRLMT > SYS.ENRLMT2:  # custom field mapping from SYS.ENRLMT to SYS.ENRLMT2
       truncate: false
       fields:
       - ENRLMT_ID > LM_ENRLMT_ID
