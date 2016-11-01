@@ -18,7 +18,6 @@ w_elm_test2:
   truncate: true
   mappings:
   - SYS.TABLE1  # will transfer to same owner/table in target
-  - SYS.TABLE1 > SYS.TABLE2  # will transfer from SYS.TABLE1 to SYS.TABLE2
   - SYS.ENRLMT > SYS.ENRLMT2:  # custom field mapping from SYS.ENRLMT to SYS.ENRLMT2
       truncate: false
       fields:
@@ -32,3 +31,4 @@ w_elm_test2:
       - ADHC_LRN_ID > LM_ADHC_LRN_ID
       - HARGE_CODE > S_CHARGE_CD
       - "{SESSSTARTTIME} > CDE_UPDATE_DT"
+  - SYS.TABLE1 > SYS.TABLE2  # will transfer from SYS.TABLE1 to SYS.TABLE2
