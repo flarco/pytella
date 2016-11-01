@@ -1,7 +1,7 @@
 
 # workflow test 1
 w_test1:
-source: DBDEV
+  source: DBDEV
   target: Db1QA
   truncate: false # does not truncate table before inserting
   mappings:
