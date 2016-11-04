@@ -1,18 +1,17 @@
 
-# workflow test 1
+# workflow 1
 w_test1:
-  source: DB1
-  target: DB2
+  source: DB1  # defined in the settings.yml
+  target: DB2  # defined in the settings.yml
   truncate: false # does not truncate table before inserting
   mappings:
   - SYS.TABLE1  # will transfer to same owner/table in Db1QA
   - SYS.TABLE1 > SYS.TABLE2  # will transfer from DBDEV.SYS.TABLE1 to Db1QA.SYS.TABLE2
 
-# workflow test 2
+# workflow 2
 w_elm_test2:
   expressions_db:
     SESSSTARTTIME: "SYSDATE"
-  
   source: DB2
   target: DB1
   truncate: true
@@ -20,14 +19,14 @@ w_elm_test2:
   - SYS.TABLE1  # will transfer to same owner/table in target
   - SYS.ENRLMT > SYS.ENRLMT2:  # custom field mapping from SYS.ENRLMT to SYS.ENRLMT2
       truncate: false
-      sql: |
+      sql: |  # custom SQL on the source
         SELECT
           *
         FROM
           SYS.ENRLMT
         WHERE
           ACT_ID = 1234
-      fields:
+      fields:  # custom source field to target field mappings
       - ENRLMT_ID > LM_ENRLMT_ID
       - CI_ID > LM_CI_ID
       - ACT_ID > LM_ACT_ID
@@ -37,8 +36,8 @@ w_elm_test2:
       - COMPL_DT > LM_COMPL_DT
       - ADHC_LRN_ID > LM_ADHC_LRN_ID
       - HARGE_CODE > S_CHARGE_CD
-      - "{SESSSTARTTIME} > CDE_UPDATE_DT"
-  - SYS.TABLE1 > SYS.TABLE2  # will transfer from SYS.TABLE1 to SYS.TABLE2
+      - "{SESSSTARTTIME} > CDE_UPDATE_DT"  # use of custom expression defined in 'expressions_db' above
+  - SYS.TABLE1 > SYS.TABLE2:  # will transfer from SYS.TABLE1 to SYS.TABLE2
       fields:
       - "* > *"  # matches fields one to one, overriden by explicitly defined field mappings
-      - "{SESSSTARTTIME} > CDE_UPDATE_DT"
+      - "{SESSSTARTTIME} > CDE_UPDATE_DT"  # use of custom expression defined in 'expressions_db' above
