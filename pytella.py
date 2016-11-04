@@ -45,6 +45,11 @@ class Conn:
   def connect(self):
     self.conn = zxJDBC.connect(self.url, self.username, self.password, self.driver)
   
+  def execute(self, sql):
+    cursor = self.conn.cursor(True)
+    cursor.execute(sql)
+    cursor.close()
+  
   def query_array_dict(self, sql, size=None):
     cursor = self.conn.cursor(True)
     cursor.execute(sql)
@@ -60,9 +65,9 @@ class Conn:
   def get_type(self):
     url = self.url
 
-    if 'postgres' in url:
+    if 'postgresql' in url:
       self.type = "PostgreSQL"
-      self.type_ = "postgres"
+      self.type_ = "postgresql"
       self.limit_templ = 'LIMIT {}'
       self.name_qual = '"'
       
@@ -158,7 +163,8 @@ class Scriptella(object):
         WHERE_CLAUSE=where_clause,
       )
       
-      
+      if mapping.sql:
+        src_sql = mapping.sql
       
       conn = connections[target['database']]
       options = '/*+ APPEND NOLOGGING */' if conn.type_ == 'oracle' else ''
@@ -169,16 +175,29 @@ class Scriptella(object):
         target['table']
       )
 
+      if mapping.truncate:
+        self.truncate_table(
+          conn,
+          target['schema'],
+          target['table']
+        )
+
       def get_new_field(f):
-        new_field = mapping.fields[f].strip().format(**self.workflow.expressions)
-        if new_field == mapping.fields[f].strip():
-          new_field = "?{etl.getParameter('" + new_field + "')}"
+        if '*' in mapping.fields and not f in mapping.fields:
+          new_field = "?{etl.getParameter('" + f.strip() + "')}"
+        else:
+          new_field = mapping.fields[f].strip().format(**self.workflow.expressions)
+          if new_field == mapping.fields[f].strip():
+            new_field = "?{etl.getParameter('" + new_field + "')}"
         return new_field
       
       if len(mapping.fields) > 0:
-        target_fields = mapping.fields.keys()
+        target_fields2 = mapping.fields.keys()
+        if '*' in target_fields2:
+          target_fields += [f for f in target_fields2 if not f in target_fields and f != '*']
+        else:
+          target_fields = target_fields2
         variable_fields = ','.join([get_new_field(f) for f in target_fields])
-          
       else:
         variable_fields = ','.join(["?{etl.getParameter('" + f.strip() + "')}" for f in target_fields])
       
@@ -195,7 +214,7 @@ class Scriptella(object):
         TGT_FIELDS=', '.join(target_fields),
         VAR_FILES=variable_fields,
       )
-      
+
       query_branch = self.create_query_branch(
           source['database'],
           src_sql,
@@ -270,6 +289,14 @@ class Scriptella(object):
     
     return script_branch
   
+  def truncate_table(self, conn, schema, table):
+    sql = '''TRUNCATE TABLE {OWNER}.{TABLE_NAME}'''.format(
+      OWNER=schema,
+      TABLE_NAME=table
+    )
+    log(sql)
+    db_live_connections[conn.name].execute(sql)
+  
   def get_table_fields(self, conn, schema, table):
     sql = '''
     SELECT
@@ -332,8 +359,7 @@ class Workflow:
       )
 
       if isinstance(table_map, dict):
-        spec_ = table_map.values()[0]
-        for k,v in spec_.items():
+        for k,v in table_map.values()[0].items():
           mapping_spec[k] = v
         table_map = table_map.keys()[0]
 
@@ -358,6 +384,7 @@ class Mapping:
     self.target_table = m_spec['t_table']
     self.truncate = m_spec['truncate']
     self.fields = OrderedDict()
+    self.sql = m_spec['sql'] if 'sql' in m_spec else None
 
     if not all(['.' in self.source_table, '.' in self.target_table]):
       log('> ERROR: table names need "."! (SCHEMA.TABLE_NAME)')
@@ -367,7 +394,7 @@ class Mapping:
     if 'fields' in m_spec:
       for field_map in m_spec['fields']:
         s_field, t_field = [f.strip() for f in field_map.split('>')]
-        self.fields[t_field] = s_field
+        self.fields[t_field.upper()] = s_field
 
     self.s_combo = '{}.{}'.format(self.source_conn, self.source_table)
     self.t_combo = '{}.{}'.format(self.target_conn, self.target_table)

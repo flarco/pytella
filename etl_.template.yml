@@ -1,8 +1,8 @@
 
 # workflow test 1
 w_test1:
-  source: DBDEV
-  target: Db1QA
+  source: DB1
+  target: DB2
   truncate: false # does not truncate table before inserting
   mappings:
   - SYS.TABLE1  # will transfer to same owner/table in Db1QA
@@ -13,13 +13,20 @@ w_elm_test2:
   expressions_db:
     SESSSTARTTIME: "SYSDATE"
   
-  source: DBPRD
-  target: DBDEV
+  source: DB2
+  target: DB1
   truncate: true
   mappings:
   - SYS.TABLE1  # will transfer to same owner/table in target
   - SYS.ENRLMT > SYS.ENRLMT2:  # custom field mapping from SYS.ENRLMT to SYS.ENRLMT2
       truncate: false
+      sql: |
+        SELECT
+          *
+        FROM
+          SYS.ENRLMT
+        WHERE
+          ACT_ID = 1234
       fields:
       - ENRLMT_ID > LM_ENRLMT_ID
       - CI_ID > LM_CI_ID
@@ -32,3 +39,6 @@ w_elm_test2:
       - HARGE_CODE > S_CHARGE_CD
       - "{SESSSTARTTIME} > CDE_UPDATE_DT"
   - SYS.TABLE1 > SYS.TABLE2  # will transfer from SYS.TABLE1 to SYS.TABLE2
+      fields:
+      - "* > *"  # matches fields one to one, overriden by explicitly defined field mappings
+      - "{SESSSTARTTIME} > CDE_UPDATE_DT"
