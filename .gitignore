@@ -4,6 +4,8 @@ __pycache__/
 *$py.class
 settings.yml
 etl_test*.yml
+tasks/
+test.csv
 
 # C extensions
 *.so
