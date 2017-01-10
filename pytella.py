@@ -11,6 +11,8 @@ from scriptella.tools.launcher import EtlLauncher
 
 from arg_parser import parser_args
 
+from sql import *
+
 from helpers import (
   settings,
   fetch_to_array_dict,
@@ -45,9 +47,13 @@ class Conn:
   def connect(self):
     self.conn = zxJDBC.connect(self.url, self.username, self.password, self.driver)
   
-  def execute(self, sql):
+  def execute(self, sql, ignore_error=False):
     cursor = self.conn.cursor(True)
-    cursor.execute(sql)
+    if ignore_error:
+      try:cursor.execute(sql)
+      except:log(get_exception_message())
+    else:
+      cursor.execute(sql)
     cursor.close()
   
   def query_array_dict(self, sql, size=None):
@@ -172,8 +178,57 @@ class Scriptella(object):
       target_fields = self.get_table_fields(
         conn,
         target['schema'],
-        target['table']
+        target['table'],
       )
+
+      if not target_fields:
+        # need to create table
+        # Get DDL
+        s_conn = get_conn(source['database'])
+        if parser_args.limited_perm:
+          if source['schema'] != s_conn.username:
+            sql = sql_ddl.oracle_copy.format(
+              s_owner = source['schema'],
+              s_table = source['table'],
+              t_table = source['table'],
+            )
+            s_conn.execute(sql, ignore_error=True)
+
+          sql = sql_ddl.oracle_.format(
+            type='TABLE',
+            object=source['table'],
+          )
+        else:
+          sql = sql_ddl.oracle.format(
+            type='TABLE',
+            owner=source['schema'],
+            object=source['table'],
+          )
+        data = s_conn.query_array_dict(sql)
+
+        if not data:
+          log('ERROR getting DDL for {}.{}.'.format(
+            source['schema'],
+            source['table']
+          ))
+          return None
+        
+        if not parser_args.create_table:
+          log("Table {} does not exists on {}. Add flag '-createTable'".format(
+            source['table'],
+            target['database'],
+          ))
+          return None
+        
+        ddl = data[0]['ddl']
+        print(ddl)
+        sql = ddl.replace(source['schema'], target['schema'], 1).\
+          replace(source['table'], target['table'], 1)
+        # remove TABLESPACE
+        sql = '\n'.join([l for l in sql.splitlines() if not l.strip().startswith('TABLESPACE ')])
+
+        # Execute on target
+        conn.execute(sql)
 
       if mapping.truncate:
         self.truncate_table(
@@ -227,6 +282,8 @@ class Scriptella(object):
             
     xml_body = xml_prefix + etree.ElementTree.tostring(etl_branch)
     save_text_to_file(xml_body.decode('utf-8'), self.etl_file_path)
+
+    return 1
   
   def create_connection_branch(self, name, conn, allow_truncate = False):
     '''
@@ -402,6 +459,16 @@ class Mapping:
   def get_combos(self):
     return (self.s_combo, self.t_combo)
 
+
+def get_conn(name):
+  if name not in db_live_connections:
+    print('Connecting to ' + name)
+    db_live_connections[name] = connections[name]
+    connections[name].connect()
+  
+  return db_live_connections[name]
+
+
 limit = 0
 db_live_connections={}
 
@@ -417,6 +484,6 @@ if parser_args.workflow:
       workflow = Workflow(wf_spec)
       log("Processing workflow {}".format(wf_name))
       etl = Scriptella(wf_name, workflow)
-      etl.create_etl_file()
-      etl.execute()
+      if etl.create_etl_file():
+        etl.execute()
 

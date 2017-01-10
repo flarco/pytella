@@ -18,3 +18,9 @@ sql_insert = dict2(
   mysql = 'INSERT INTO {table} ({names}) VALUES {values} ',
 
 )
+
+sql_ddl = dict2(
+  oracle = '''select dbms_metadata.get_ddl('{type}', '{object}', '{owner}') as "DDL" from dual''',
+  oracle_ = '''select dbms_metadata.get_ddl('{type}', '{object}') as "DDL" from dual''',
+  oracle_copy = '''create table {t_table} as select * from {s_owner}.{s_table} where ROWNUM < 100''',
+)
