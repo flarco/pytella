@@ -19,6 +19,7 @@ parser.add_argument('-selectSql', dest='select_sql', help="Override the Select S
 parser.add_argument('-selectSqlFile', dest='select_sql_file', help="Override the Select SQL Query with query in file path. Example: 'C:\\Temp\\sql_view1.sql'")
 
 parser.add_argument('-truncate', dest='truncate', action='store_true', help='Indicates to truncate TARGET table before INSERT.')
+parser.add_argument('-limitedPerm', dest='limited_perm', action='store_true', help='Indicates limited permission on Database. DDL permission only on user schema.')
 parser.add_argument('-createTable', dest='create_table', action='store_true', help='Indicates to create the table if needed on the TARGET.')
 parser.add_argument('-showDetails', dest='show_details', action='store_true', help='Show details such as INSERT rate, SQL Query, number of columns.')
 parser.add_argument('-noHeaders', dest='no_headers', action='store_true', help='Specifies that Delimited Separated File / CSV has no Header row.')
