@@ -289,7 +289,7 @@ class Scriptella(object):
           field, fmt = col_format.split('=')
           date_format[field.lower()] = fmt
         
-        date_enclose = lambda field: "TO_DATE(?{etl.getParameter('%s')}, '%s')" % (field, date_format[field.lower()]) \
+        date_enclose = lambda field: "TO_TIMESTAMP(?{etl.getParameter('%s')}, '%s')" % (field, date_format[field.lower()]) \
             if field.lower() in date_format else "?{etl.getParameter('%s')}" % (field,)
         
         variable_fields = ','.join([date_enclose(f) for f in target_fields])
