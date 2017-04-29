@@ -9,7 +9,7 @@ A Jython wrapper to run ETL scripts with scriptella.
     - ~~MySQL~~
     - MongoDB
     - SQLite
-    - CSV
+    - ~~CSV~~
   - Automatically create table in target (if not exists) -- tricky for cross-DB systems. Need to translate data types.
   - Add caching mechanism (to not need to obtain table source/target structure each time). Use MD5 sum or some Sha comparison to determine if the workflow config text has changed.
   - ~~ More complex mappings through YML definitions ~~
