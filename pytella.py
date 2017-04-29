@@ -136,7 +136,40 @@ class Scriptella(object):
       conn2.name = conn_name + '_'
       conn_branch = self.create_connection_branch(conn2.name, conn2, allow_truncate = True)
       # etl_branch.append(conn_branch)
-        
+    
+    # Add CSV Connections
+    if self.workflow.source_conn.lower() == 'csv':
+      conn_branch = Element(
+        'connection',
+        id='csv_in',
+        url=self.workflow.csv_file,
+        driver="csv",
+      )
+      conn_branch.text = '''
+      quote={quote}
+      separator={delimiter}
+      '''.format(
+        quote=self.workflow.csv_quote,
+        delimiter=self.workflow.csv_delimiter,
+      )
+      etl_branch.append(conn_branch)
+
+    elif self.workflow.target_conn.lower() == 'csv':
+      conn_branch = Element(
+        'connection',
+        id='csv_out',
+        url=self.workflow.csv_file,
+        driver="csv",
+      )
+      conn_branch.text = '''
+      quote={quote}
+      separator={delimiter}
+      '''.format(
+        quote=self.workflow.csv_quote,
+        delimiter=self.workflow.csv_delimiter,
+      )
+      etl_branch.append(conn_branch)
+      
     
     # Add Queries
     for mapping in self.workflow.mappings:
@@ -171,6 +204,10 @@ class Scriptella(object):
       
       if mapping.sql:
         src_sql = mapping.sql
+
+      if self.workflow.source_conn.lower() == 'csv':
+        src_sql = ''
+        source['database'] = 'csv_in'
       
       conn = connections[target['database']]
       options = '/*+ APPEND NOLOGGING */' if conn.type_ == 'oracle' else ''
@@ -246,7 +283,17 @@ class Scriptella(object):
             new_field = "?{etl.getParameter('" + new_field + "')}"
         return new_field
       
-      if len(mapping.fields) > 0:
+      if self.workflow.source_conn.lower() == 'csv':
+        date_format = {}
+        for col_format in self.workflow.csv_date_cols:
+          field, fmt = col_format.split('=')
+          date_format[field.lower()] = fmt
+        
+        date_enclose = lambda field: "TO_DATE(?{etl.getParameter('%s')}, '%s')" % (field, date_format[field.lower()]) \
+            if field.lower() in date_format else "?{etl.getParameter('%s')}" % (field,)
+        
+        variable_fields = ','.join([date_enclose(f) for f in target_fields])
+      elif len(mapping.fields) > 0:
         target_fields2 = mapping.fields.keys()
         if '*' in target_fields2:
           target_fields += [f for f in target_fields2 if not f in target_fields and f != '*']
@@ -260,14 +307,14 @@ class Scriptella(object):
       INSERT {OPTIONS} INTO {SCHEMA}.{TABLE}
       ({TGT_FIELDS})
       VALUES
-      ({VAR_FILES})
+      ({VAR_FIELDS})
       ;
       '''.format(
         OPTIONS=options,
         SCHEMA=target['schema'],
         TABLE=target['table'],
         TGT_FIELDS=', '.join(target_fields),
-        VAR_FILES=variable_fields,
+        VAR_FIELDS=variable_fields,
       )
 
       query_branch = self.create_query_branch(
@@ -407,6 +454,13 @@ class Workflow:
     self.expressions = get_val(w_spec, 'expressions_db', {})
     self.truncate = w_spec['truncate'] if 'truncate' in w_spec else False
     self.mappings = []
+
+    # CSV
+    if self.source_conn.lower() == 'csv' or self.target_conn.lower() == 'csv':
+      self.csv_file = w_spec['csv_file']
+      self.csv_delimiter = w_spec['csv_delimiter'] if 'csv_delimiter' in w_spec else ','
+      self.csv_quote = w_spec['csv_quote'] if 'csv_quote' in w_spec else '"'
+      self.csv_date_cols = w_spec['csv_date_cols'].split(',') if 'csv_date_cols' in w_spec else []
 
     for table_map in w_spec['mappings']:
       mapping_spec = dict(

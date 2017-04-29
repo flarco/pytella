@@ -5,11 +5,23 @@ w_test1:
   target: DB2  # defined in the settings.yml
   truncate: false # does not truncate table before inserting
   mappings:
-  - SYS.TABLE1  # will transfer to same owner/table in Db1QA
-  - SYS.TABLE1 > SYS.TABLE2  # will transfer from DBDEV.SYS.TABLE1 to Db1QA.SYS.TABLE2
+  - SYS.TABLE1  # will transfer to same owner/table in DB1
+  - SYS.TABLE1 > SYS.TABLE2  # will transfer from DB1.SYS.TABLE1 to DB2.SYS.TABLE2
 
-# workflow 2
-w_elm_test2:
+# workflow 2 (CSV)
+w_test2:
+  csv_file: /tmp/test.csv
+  csv_delimiter: "\t" # optional. Default: ','
+  csv_quote: '"' # optional. Default: '"'
+  csv_date_cols: 'date_=yyyy-mm-dd,date_time=yyyy-dd-mm hh24:mi:ss' # optional, specify date column formats for proper conversion
+  source: CSV  # source is CSV File
+  target: DB2  # defined in the settings.yml
+  truncate: false # does not truncate table before inserting
+  mappings:
+  - SYS.TABLE1  # will transfer to owner/table in DB2
+
+# workflow 3 (more complex)
+w_elm_test3:
   expressions_db:
     SESSSTARTTIME: "SYSDATE"
   source: DB2
