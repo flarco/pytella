@@ -37,7 +37,7 @@ class Conn:
   def __init__(self, name, cred):
     self.name = name
     self.url = cred['url']
-    self.username = cred['username']
+    self.username = cred['user']
     self.password = cred['password']
     self.get_type()
     self.driver = settings['drivers'][self.type_]['class']
@@ -407,8 +407,8 @@ class Scriptella(object):
     OWNER, TABLE_NAME, COLUMN_NAME, TABLE_NAME || '.' || COLUMN_NAME as COMBO, DATA_TYPE, DATA_LENGTH, DATA_PRECISION, COLUMN_ID
     from ALL_TAB_COLUMNS WHERE OWNER = '{OWNER}' and TABLE_NAME = '{TABLE_NAME}'
     '''.format(
-      OWNER=schema,
-      TABLE_NAME=table
+      OWNER=schema.upper(),
+      TABLE_NAME=table.upper()
     )
     instance=conn.name
     
@@ -447,10 +447,19 @@ class Scriptella(object):
 class Workflow:
   
   def __init__(self, w_spec):
+    global connections
+
     get_val = lambda d,k,n: d[k] if k in d else n
 
     self.source_conn = w_spec['source']
     self.target_conn = w_spec['target']
+
+    for name, conn in settings['databases'].items():
+      if name.lower() == 'csv': continue
+      if name.lower() == self.source_conn.lower() or \
+        name.lower() == self.target_conn.lower():
+        connections[name] = Conn(name, conn)
+
     self.expressions = get_val(w_spec, 'expressions_db', {})
     self.truncate = w_spec['truncate'] if 'truncate' in w_spec else False
     self.mappings = []
@@ -526,7 +535,7 @@ def get_conn(name):
 limit = 0
 db_live_connections={}
 
-connections = {name: Conn(name, conn) for name, conn in settings['databases'].items()}
+connections = {}
 
 if parser_args.workflow:
   if not('\\' in parser_args.workflow or '/' in parser_args.workflow):
